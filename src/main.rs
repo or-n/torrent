@@ -1,7 +1,7 @@
-mod bencode;
-mod decode;
-mod torrent;
-mod util;
+use rustorrent::bencode;
+use rustorrent::decode;
+use rustorrent::torrent;
+use rustorrent::util;
 
 use clap::Parser;
 use log::info;

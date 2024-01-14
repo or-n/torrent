@@ -60,7 +60,7 @@ impl State {
             return Some(Message::Bitfield(self.bitfield.clone()));
         }
         match find0(&self.bitfield) {
-            Some(index) => {
+            Some(_index) => {
                 if !self.interested {
                     self.interested = true;
                     return Some(Message::Interested);

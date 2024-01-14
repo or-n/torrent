@@ -19,7 +19,7 @@ impl serde::Serialize for Dictionary {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     NoEnd,
 }

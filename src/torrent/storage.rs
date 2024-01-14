@@ -27,7 +27,7 @@ pub fn load_bitfield(path: &str, length: i64, piece_length: i64) -> Result<Vec<u
         }
         Err(_) => {
             let bitfield = vec![0; pieces];
-            std::fs::write(progress, &bitfield)?;
+            std::fs::write(progress, &bitfield).map_err(Error::IO)?;
             Ok(bitfield)
         }
     }

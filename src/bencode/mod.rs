@@ -5,7 +5,7 @@ pub mod integer;
 pub mod list;
 pub mod string;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     String(string::Error),
     Integer(integer::Error),

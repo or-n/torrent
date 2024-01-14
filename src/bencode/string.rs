@@ -31,7 +31,7 @@ impl serde::Serialize for Bytes {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     ParseInt(std::num::ParseIntError),
     NotEnough,

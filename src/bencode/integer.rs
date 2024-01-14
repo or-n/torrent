@@ -1,7 +1,7 @@
 use crate::decode;
 use std::num::ParseIntError;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Decode(decode::Error),
     ParseInt(ParseIntError),

@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     EmptyInput,
     NoDelimeter(u8),
@@ -6,7 +6,7 @@ pub enum Error {
 }
 
 #[allow(dead_code)]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Mismatch<T> {
     expect: T,
     got: T,

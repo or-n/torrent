@@ -2,7 +2,7 @@ use crate::decode;
 
 pub type List = Vec<super::Item>;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     NoEnd,
 }
