@@ -103,7 +103,7 @@ async fn handle_peer(
     mut state: torrent::protocol::State,
     info_hash: &[u8; 20],
 ) {
-    let mut buffer = vec![0; 32 * 1024];
+    let mut buffer = vec![0; 128 * 1024];
     loop {
         tokio::select! {
             readable = stream.readable() => {

@@ -4,7 +4,9 @@ pub struct State {
     pub seeding: bool,
     pub interested: bool,
     pub choked: bool,
+    pub choking: bool,
     pub bitfield: Vec<u8>,
+    pub asked: Vec<u8>,
     pub sent_anything: bool,
     pub received_anything: bool,
     pub length: usize,
@@ -58,6 +60,10 @@ fn count0(length: usize, bitfield: &Vec<u8>) -> usize {
     count
 }
 
+fn set(bytes: &mut Vec<u8>, index: usize) {
+    bytes[index / 8] |= 1 << (index % 8);
+}
+
 impl State {
     pub fn new(length: usize, bitfield: Vec<u8>) -> State {
         let left = count0(length, &bitfield);
@@ -65,6 +71,8 @@ impl State {
             seeding: false,
             interested: false,
             choked: true,
+            choking: true,
+            asked: bitfield.clone(),
             bitfield,
             sent_anything: false,
             received_anything: false,
@@ -78,7 +86,8 @@ impl State {
     pub fn communicate(&mut self, message: Option<Message>) -> Option<Message> {
         if let Some(message) = message {
             match message {
-                Message::Choke => {}
+                Message::Choke => self.choked = true,
+                Message::Unchoke => self.choked = false,
                 _ => {}
             }
         }
@@ -86,24 +95,34 @@ impl State {
             self.sent_anything = true;
             return Some(Message::Bitfield(self.bitfield.clone()));
         }
-        match find0(&self.bitfield) {
-            Some(_index) => {
+        match find0(&self.asked) {
+            Some(index) => {
                 if !self.interested {
                     self.interested = true;
                     return Some(Message::Interested);
                 }
                 if self.choked {
-                    self.choked = false;
+                    return None;
+                }
+                if self.choking {
+                    self.choking = false;
                     Some(Message::Unchoke)
                 } else {
-                    let location = location::Location { index: 0, begin: 0 };
+                    let location = location::Location {
+                        index: index as u32,
+                        begin: 0,
+                    };
+                    set(&mut self.asked, index);
                     Some(Message::Request(request::Request {
                         location,
                         length: 16 * 1024,
                     }))
                 }
             }
-            _ => None,
+            _ => {
+                self.asked = self.bitfield.clone();
+                None
+            }
         }
     }
 }
