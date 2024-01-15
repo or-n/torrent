@@ -1,6 +1,5 @@
 use crate::decode;
 
-#[derive(Debug)]
 pub struct Request {
     pub location: super::location::Location,
     pub length: u32,
@@ -28,5 +27,11 @@ impl Request {
 
     pub fn encode(&self) -> Vec<u8> {
         vec![self.location.encode(), self.length.to_be_bytes().to_vec()].concat()
+    }
+}
+
+impl std::fmt::Debug for Request {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?} {}", self.location, self.length)
     }
 }

@@ -1,6 +1,5 @@
 use crate::decode;
 
-#[derive(Debug)]
 pub struct Location {
     pub index: u32,
     pub begin: u32,
@@ -25,5 +24,11 @@ impl Location {
             self.begin.to_be_bytes().to_vec(),
         ]
         .concat()
+    }
+}
+
+impl std::fmt::Debug for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.index, self.begin)
     }
 }

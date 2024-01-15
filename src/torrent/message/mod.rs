@@ -35,9 +35,9 @@ impl std::fmt::Debug for Message {
             NotInterested => write!(f, "not interested"),
             Have(index) => write!(f, "have {}", index),
             Bitfield(x) => write!(f, "bitfield {}", show_bitfield(x)),
-            Request(_) => write!(f, "request"),
-            Piece(_) => write!(f, "piece"),
-            Cancel(_) => write!(f, "cancel"),
+            Request(x) => write!(f, "request {:?}", x),
+            Piece(x) => write!(f, "piece {:?}", x.location),
+            Cancel(x) => write!(f, "cancel {:?}", x),
         }
     }
 }

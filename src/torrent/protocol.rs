@@ -64,7 +64,7 @@ impl State {
         State {
             seeding: false,
             interested: false,
-            choked: false,
+            choked: true,
             bitfield,
             sent_anything: false,
             received_anything: false,
@@ -78,7 +78,7 @@ impl State {
     pub fn communicate(&mut self, message: Option<Message>) -> Option<Message> {
         if let Some(message) = message {
             match message {
-                Message::Choke => self.choked = true,
+                Message::Choke => {}
                 _ => {}
             }
         }
@@ -93,7 +93,8 @@ impl State {
                     return Some(Message::Interested);
                 }
                 if self.choked {
-                    None
+                    self.choked = false;
+                    Some(Message::Unchoke)
                 } else {
                     let location = location::Location { index: 0, begin: 0 };
                     Some(Message::Request(request::Request {
