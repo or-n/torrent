@@ -61,9 +61,11 @@ impl Message {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
-    NotValid,
+    NoLength,
+    NotEnoughBytes,
+    NotValidType,
     Have,
     Request(request::Error),
     Piece(piece::Error),
@@ -77,12 +79,12 @@ pub enum Action {
 
 pub fn r#try(input: &[u8]) -> Result<(&[u8], Action), Error> {
     use Action::*;
-    let (input, n) = decode::u32(input).ok_or(Error::NotValid)?;
+    let (input, n) = decode::u32(input).ok_or(Error::NoLength)?;
     if n == 0 {
         return Ok((input, KeepAlive));
     };
     if input.len() < n as usize {
-        return Err(Error::NotValid);
+        return Err(Error::NotEnoughBytes);
     }
     let payload = &input[1..n as usize];
     let r = match input[0] {
@@ -99,7 +101,7 @@ pub fn r#try(input: &[u8]) -> Result<(&[u8], Action), Error> {
         8 => Ok(Message(Cancel(
             request::r#try(payload).map_err(Error::Cancel)?,
         ))),
-        _ => Err(Error::NotValid),
+        _ => Err(Error::NotValidType),
     };
     r.map(|action| (&input[n as usize..], action))
 }

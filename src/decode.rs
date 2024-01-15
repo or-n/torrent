@@ -51,13 +51,17 @@ pub fn u32(input: &[u8]) -> Option<(&[u8], u32)> {
 
 pub fn many<Ok, Error>(
     decoder: impl Fn(&[u8]) -> Result<(&[u8], Ok), Error>,
-) -> impl Fn(&[u8]) -> (&[u8], Vec<Ok>) {
+) -> impl Fn(&[u8]) -> (&[u8], Vec<Ok>, Error) {
     move |mut input| {
         let mut out = Vec::new();
-        while let Ok((new_input, x)) = decoder(input) {
-            out.push(x);
-            input = new_input;
+        loop {
+            match decoder(input) {
+                Ok((new_input, x)) => {
+                    out.push(x);
+                    input = new_input;
+                }
+                Err(e) => return (input, out, e),
+            }
         }
-        (input, out)
     }
 }

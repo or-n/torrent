@@ -122,7 +122,10 @@ async fn handle_peer(
                                 return;
                             }
                         }
-                        let (_, actions) = decode::many(torrent::message::r#try)(bytes);
+                        let (rest, actions, e) = decode::many(torrent::message::r#try)(bytes);
+                        if !rest.is_empty() && e == torrent::message::Error::NoLength {
+                            info!("{:?}", e);
+                        }
                         for action in actions {
                             use torrent::message::Action;
                             match action {

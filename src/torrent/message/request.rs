@@ -5,7 +5,7 @@ pub struct Request {
     pub length: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Location(super::location::Error),
     NoLength,

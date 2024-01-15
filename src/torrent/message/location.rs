@@ -5,7 +5,7 @@ pub struct Location {
     pub begin: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     NoIndex,
     NoBegin,

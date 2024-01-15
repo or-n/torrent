@@ -3,7 +3,7 @@ pub struct Piece {
     pub piece: Vec<u8>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     Location(super::location::Error),
 }
