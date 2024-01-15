@@ -7,6 +7,10 @@ pub struct State {
     pub bitfield: Vec<u8>,
     pub sent_anything: bool,
     pub received_anything: bool,
+    pub length: usize,
+    pub uploaded: usize,
+    pub downloaded: usize,
+    pub left: usize,
 }
 
 const PROTOCOL: &[u8; 20] = b"\x13BitTorrent protocol";
@@ -36,8 +40,27 @@ fn find0(bitfield: &Vec<u8>) -> Option<usize> {
         .map(|i| byte_index * 8 + i)
 }
 
+fn count0(length: usize, bitfield: &Vec<u8>) -> usize {
+    let mut count = 0;
+    for byte in &bitfield[..bitfield.len() - 1] {
+        for i in 0..8 {
+            if byte & (1 << i) == 0 {
+                count += 1;
+            }
+        }
+    }
+    let last_byte = bitfield[bitfield.len() - 1];
+    for i in 0..(length % 8) {
+        if last_byte & (1 << i) == 0 {
+            count += 1;
+        }
+    }
+    count
+}
+
 impl State {
-    pub fn new(bitfield: Vec<u8>) -> State {
+    pub fn new(length: usize, bitfield: Vec<u8>) -> State {
+        let left = count0(length, &bitfield);
         State {
             seeding: false,
             interested: false,
@@ -45,6 +68,10 @@ impl State {
             bitfield,
             sent_anything: false,
             received_anything: false,
+            length,
+            uploaded: 0,
+            downloaded: length - left,
+            left,
         }
     }
 

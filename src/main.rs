@@ -44,7 +44,8 @@ async fn main() {
         } else {
             let meta = torrent::meta::extract(&meta_item).expect("valid meta");
             let info = torrent::meta::info::extract(&meta.info).expect("valid info");
-            let (url, info_hash) = torrent::query(PEER_ID, &meta);
+            let state = torrent::storage::new_state(&info);
+            let (url, info_hash) = torrent::query(PEER_ID, &meta, &state);
             info!("{torrent}: tracker: requesting peers to {}", meta.announce);
             let bytes = util::fetch_bytes(url).await.expect("http protocol");
             let (_, response_item) = bencode::item(&bytes).expect("bencode response");
@@ -54,7 +55,7 @@ async fn main() {
                     println!("{:?}", peer);
                 }
             }
-            torrenting(torrent, &info_hash, &info, &response).await;
+            torrenting(torrent, &info_hash, state, &response).await;
         }
     }
 }
@@ -82,7 +83,7 @@ async fn connect(
 async fn torrenting(
     torrent: String,
     info_hash: &[u8; 20],
-    info: &torrent::meta::info::Info,
+    state: torrent::protocol::State,
     response: &torrent::response::Response,
 ) {
     let (peer, mut stream) = connect(&response.peers).await.expect("TCP");
@@ -92,7 +93,6 @@ async fn torrenting(
     let recv = format!("{torrent}: msg: recv {:?}", peer);
     let send = format!("{torrent}: msg: send {:?}", peer);
     info!("{} handshake", send);
-    let state = torrent::storage::new_state(info);
     handle_peer((recv, send), stream, state, &info_hash).await;
     info!("{torrent}: peers: disconnect {:?}", peer);
 }
