@@ -1,5 +1,6 @@
 use crate::decode;
 
+#[derive(Clone)]
 pub struct Location {
     pub index: u32,
     pub begin: u32,

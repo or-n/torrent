@@ -5,7 +5,7 @@ fn ceil_div(a: i64, b: i64) -> i64 {
 pub fn new_state(info: &super::meta::info::Info) -> super::protocol::State {
     let bitfield =
         load_bitfield(info.name.as_str(), info.length, info.piece_length).expect("bitfield");
-    super::protocol::State::new(info.length as usize, bitfield)
+    super::protocol::State::new(info.length as usize, info.piece_length as usize, bitfield)
 }
 
 #[derive(Debug)]

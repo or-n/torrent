@@ -64,7 +64,7 @@ impl Message {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
     NoLength,
-    NotEnoughBytes,
+    NotEnoughBytes(usize, usize),
     NotValidType,
     Have,
     Request(request::Error),
@@ -84,7 +84,7 @@ pub fn r#try(input: &[u8]) -> Result<(&[u8], Action), Error> {
         return Ok((input, KeepAlive));
     };
     if input.len() < n as usize {
-        return Err(Error::NotEnoughBytes);
+        return Err(Error::NotEnoughBytes(input.len(), n as usize));
     }
     let payload = &input[1..n as usize];
     let r = match input[0] {

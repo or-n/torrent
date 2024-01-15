@@ -4,7 +4,7 @@ use rustorrent::torrent;
 use rustorrent::util;
 
 use clap::Parser;
-use log::info;
+use log::{error, info};
 
 /// BitTorrent client
 #[derive(Parser, Debug)]
@@ -49,7 +49,11 @@ async fn main() {
             info!("{torrent}: tracker: requesting peers to {}", meta.announce);
             let bytes = util::fetch_bytes(url).await.expect("http protocol");
             let (_, response_item) = bencode::item(&bytes).expect("bencode response");
-            let response = torrent::response::extract(&response_item).expect("valid response");
+            let res = torrent::response::extract(&response_item);
+            if let Err(_) = res {
+                println!("{}", util::bencode::json(&response_item));
+            }
+            let response = res.expect("valid response");
             if args.dump_peers {
                 for peer in &response.peers {
                     println!("{:?}", peer);
@@ -74,7 +78,7 @@ async fn connect(
                     return Some((peer.clone(), stream));
                 }
             }
-            _ = tokio::time::sleep(Duration::from_secs(1)) => {}
+            _ = tokio::time::sleep(Duration::from_millis(2000)) => {}
         }
     }
     None
@@ -103,53 +107,85 @@ async fn handle_peer(
     mut state: torrent::protocol::State,
     info_hash: &[u8; 20],
 ) {
-    let mut buffer = vec![0; 128 * 1024];
+    let mut buffer = [0; 128 * 1024];
+    let mut combined: Vec<u8>;
     loop {
+        stream.readable().await.expect("readable");
+        match stream.try_read(&mut buffer) {
+            Ok(n) if n > 0 => {
+                info!("{} bytes", n);
+                let bytes = &buffer[..n];
+                if let Ok((new_bytes, valid_hash)) =
+                    torrent::protocol::try_handshake(bytes, info_hash)
+                {
+                    if valid_hash {
+                        info!("{recv} handshake");
+                        combined = new_bytes.to_vec();
+                        break;
+                    }
+                }
+                combined = bytes.to_vec();
+                break;
+            }
+            Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
+                continue;
+            }
+            Err(e) => {
+                error!("{}", e);
+                return;
+            }
+            _ => return,
+        }
+    }
+    let mut started = None;
+    loop {
+        while started.is_none() && !combined.is_empty() {
+            if let None = started {
+                let (_, length) = decode::u32(&combined).unwrap();
+                started = Some(length as usize);
+            }
+            if let Some(length) = started {
+                if combined.len() < length + 4 {
+                    continue;
+                }
+                if let Ok((rest, action)) = torrent::message::r#try(&combined) {
+                    use torrent::message::Action;
+                    match action {
+                        Action::KeepAlive => {}
+                        Action::Message(message) => {
+                            info!("{recv} {:?}", message);
+                            if let Some(m) = state.communicate(Some(message)) {
+                                stream.write_all(&m.encode()).await.expect("send");
+                                info!("{send} {:?}", m);
+                            }
+                        }
+                    }
+                    combined = rest.to_vec();
+                    started = None;
+                } else {
+                    info!("ERROR");
+                }
+            }
+        }
         tokio::select! {
             readable = stream.readable() => {
                 readable.expect("readable");
                 match stream.try_read(&mut buffer) {
-                    Ok(0) => {
-                        return;
-                    }
-                    Ok(n) => {
-                        let mut bytes = &buffer[..n];
-                        if let Ok((new_bytes, valid_hash)) = torrent::protocol::try_handshake(bytes, info_hash) {
-                            if valid_hash {
-                                info!("{recv} handshake");
-                                bytes = new_bytes;
-                            } else {
-                                return;
-                            }
-                        }
-                        let (rest, actions, e) = decode::many(torrent::message::r#try)(bytes);
-                        if !rest.is_empty() && e == torrent::message::Error::NoLength {
-                            info!("{:?}", e);
-                        }
-                        for action in actions {
-                            use torrent::message::Action;
-                            match action {
-                                Action::KeepAlive => {}
-                                Action::Message(message) => {
-                                    info!("{recv} {:?}", message);
-                                    if let Some(m) = state.communicate(Some(message)) {
-                                        stream.write_all(&m.encode()).await.expect("send");
-                                        info!("{send} {:?}", m);
-                                    }
-                                }
-                            }
-                        }
+                    Ok(n) if n > 0 => {
+                        info!("{} bytes", n);
+                        combined.extend_from_slice(&buffer[..n]);
                     }
                     Err(ref e) if e.kind() == ErrorKind::WouldBlock => {
                         continue;
                     }
-                    Err(_) => {
+                    Err(e) => {
+                        error!("{}", e);
                         return;
                     }
+                    _ => return,
                 }
             }
-            _ = tokio::time::sleep(Duration::from_secs(2)) => {
-                //info!("didn't receive anything in 2s");
+            _ = tokio::time::sleep(Duration::from_millis(500)) => {
                 if let Some(m) = state.communicate(None) {
                     stream.write_all(&m.encode()).await.expect("send");
                     info!("{send} {:?}", m);
