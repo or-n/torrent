@@ -3,6 +3,7 @@ use rustorrent::torrent;
 use rustorrent::util;
 
 use clap::Parser;
+use futures::stream::{FuturesUnordered, StreamExt};
 use log::{error, info};
 
 /// BitTorrent client
@@ -44,9 +45,22 @@ async fn main() {
             let meta = torrent::meta::extract(&meta_item).expect("valid meta");
             let info = torrent::meta::info::extract(&meta.info).expect("valid info");
             let state = torrent::storage::new_state(&info);
-            let (url, info_hash) = torrent::query(PEER_ID, &meta, &state);
-            info!("{torrent}: tracker: requesting peers to {}", meta.announce);
-            let bytes = util::fetch_bytes(url).await.expect("http protocol");
+            let http_announces = collect_http_announces(&meta);
+            let info_hash = util::sha1(bencode::encode(&meta.info));
+            let it = http_announces.into_iter().map(|announce| {
+                info!("{torrent}: tracker: requesting peers to {}", announce);
+                let url = torrent::query(PEER_ID, &info_hash, &announce, &state);
+                util::fetch_bytes(url)
+            });
+            let mut stream = FuturesUnordered::new();
+            for future in it {
+                stream.push(Box::pin(future));
+            }
+            let bytes = stream
+                .next()
+                .await
+                .expect("any http tracker")
+                .expect("http protocol");
             let (_, response_item) = bencode::item(&bytes).expect("bencode response");
             let res = torrent::response::extract(&response_item);
             if let Err(_) = res {
@@ -61,6 +75,27 @@ async fn main() {
             torrenting(torrent, &info_hash, state, &response).await;
         }
     }
+}
+
+fn collect_http_announces(meta: &torrent::meta::Meta) -> Vec<String> {
+    let mut out = vec![];
+    let predicate = |x: &String| x.starts_with("http");
+    if let Some(announce_list) = &meta.announce_list {
+        out.extend(
+            announce_list
+                .iter()
+                .flatten()
+                .filter(|x| predicate(*x))
+                .map(|x| x.clone())
+                .collect::<Vec<_>>(),
+        );
+    }
+    if let Some(announce) = &meta.announce {
+        if predicate(announce) && !out.contains(announce) {
+            out.push(announce.clone());
+        }
+    }
+    out
 }
 
 use std::time::Duration;
