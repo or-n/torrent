@@ -1,5 +1,4 @@
 use rustorrent::bencode;
-use rustorrent::decode;
 use rustorrent::torrent;
 use rustorrent::util;
 
@@ -90,7 +89,7 @@ async fn torrenting(
     state: torrent::protocol::State,
     response: &torrent::response::Response,
 ) {
-    let (peer, mut stream) = connect(&response.peers).await.expect("TCP");
+    let (peer, mut stream) = connect(&response.peers).await.expect("any peer connects");
     info!("{torrent}: peers: connect {:?}", peer);
     let handshake = torrent::protocol::handshake(&info_hash, PEER_ID);
     stream.write_all(&handshake).await.expect("handshake");
@@ -115,13 +114,15 @@ async fn handle_peer(
             Ok(n) if n > 0 => {
                 info!("{} bytes", n);
                 let bytes = &buffer[..n];
-                if let Ok((new_bytes, valid_hash)) =
+                if let Ok((new_bytes, same_hash)) =
                     torrent::protocol::try_handshake(bytes, info_hash)
                 {
-                    if valid_hash {
+                    if same_hash {
                         info!("{recv} handshake");
                         combined = new_bytes.to_vec();
                         break;
+                    } else {
+                        return;
                     }
                 }
                 combined = bytes.to_vec();
@@ -140,31 +141,36 @@ async fn handle_peer(
     let mut started = None;
     loop {
         while started.is_none() && !combined.is_empty() {
-            if let None = started {
-                let (_, length) = decode::u32(&combined).unwrap();
-                started = Some(length as usize);
-            }
-            if let Some(length) = started {
+            if combined.len() >= 4 {
+                let x = &combined;
+                let length = u32::from_be_bytes([x[0], x[1], x[2], x[3]]) as usize;
+                started = Some(length);
                 if combined.len() < length + 4 {
                     continue;
                 }
-                if let Ok((rest, action)) = torrent::message::r#try(&combined) {
-                    use torrent::message::Action;
-                    match action {
-                        Action::KeepAlive => {}
-                        Action::Message(message) => {
-                            info!("{recv} {:?}", message);
-                            if let Some(m) = state.communicate(Some(message)) {
-                                stream.write_all(&m.encode()).await.expect("send");
-                                info!("{send} {:?}", m);
+                match torrent::message::r#try(&combined) {
+                    Ok((rest, action)) => {
+                        use torrent::message::Action;
+                        match action {
+                            Action::KeepAlive => {}
+                            Action::Message(message) => {
+                                info!("{recv} {:?}", message);
+                                if let Some(m) = state.communicate(Some(message)) {
+                                    stream.write_all(&m.encode()).await.expect("send");
+                                    info!("{send} {:?}", m);
+                                }
                             }
                         }
+                        combined = rest.to_vec();
+                        started = None;
                     }
-                    combined = rest.to_vec();
-                    started = None;
-                } else {
-                    info!("ERROR");
+                    Err(e) => {
+                        error!("{:?}", e);
+                    }
                 }
+            } else {
+                error!("message length uses 4 bytes, not {}", combined.len());
+                return;
             }
         }
         tokio::select! {
