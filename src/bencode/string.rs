@@ -7,7 +7,7 @@ pub struct Bytes {
 
 impl std::fmt::Debug for Bytes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if self.bytes.len() > 100 {
+        if self.bytes.len() > 200 {
             return write!(f, "... ({} bytes)", self.bytes.len());
         }
         for &i in &self.bytes {

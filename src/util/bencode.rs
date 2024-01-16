@@ -52,6 +52,10 @@ pub fn integer(item: &bencode::Item) -> Option<i64> {
     extract!(item, bencode::Item::Integer(x) => *x)
 }
 
+pub fn list(item: &bencode::Item) -> Option<&bencode::list::List> {
+    extract!(item, bencode::Item::List(l) => l)
+}
+
 pub fn dictionary(item: &bencode::Item) -> Option<&bencode::dictionary::Dictionary> {
     extract!(item, bencode::Item::Dictionary(d) => d)
 }
