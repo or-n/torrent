@@ -1,5 +1,10 @@
 # BitTorrent client in Rust
 
+## Dependencies
+
+In order to compile you need cargo.
+You also need OpenSSL package (with Nix you can use shell.nix to make it temporarily available).
+
 ## Example usage
 
 ```console
