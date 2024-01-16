@@ -92,7 +92,7 @@ impl State {
             seeding: false,
             interested: false,
             choked: true,
-            choking: true,
+            choking: false,
             bitfield,
             has: vec![0; n],
             sent_anything: false,
@@ -120,12 +120,15 @@ impl State {
             self.sent_anything = true;
             return Some(Message::Bitfield(self.bitfield.clone()));
         }
-        if let Some(index) = find1(&self.has) {
-            self.blocks = Some((0, locations(index as u32, self.piece_length as u32)));
+        if self.blocks.is_none() {
+            if let Some(index) = find1(&self.has) {
+                self.blocks = Some((0, locations(index as u32, self.piece_length as u32)));
+            }
         }
         match &mut self.blocks {
             Some((block_index, locations)) => {
                 if *block_index >= locations.len() {
+                    self.blocks = None;
                     return None;
                 }
                 if !self.interested {
@@ -135,10 +138,10 @@ impl State {
                 if self.choked {
                     return None;
                 }
-                /*if self.choking {
+                if self.choking {
                     self.choking = false;
                     return Some(Message::Unchoke);
-                }*/
+                }
                 let location = locations[*block_index].clone();
                 *block_index = *block_index + 1;
                 Some(Message::Request(request::Request {
